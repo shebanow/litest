@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <cmath>
 #include <getopt.h>
@@ -14,30 +16,29 @@ using namespace std;
 // HW Multiplier configuration
 struct {
 	int N;				// dimension of the vector array input to the MM
-	int P;				// dimension of teh operand matrix (PxP)
-	int Q; 				// always = P-1
-} hwMultConfig = {		// set defaults
+	int P;				// dimension of the operand matrix (PxP)
+} hwMM = {		// set defaults
 	16,
-	17,
 	16
 };
 
 // command line processing options
 static int option_maxInt = 16;
 static int option_hw_N = 16;
-static int option_hw_P = 17;
+static int option_hw_P = 16;
 static int option_minW = 16;
 static int option_minH = 16;
 static int option_minD = 1;
-static int option_maxW = 1024;
-static int option_maxH = 768;
+static int option_maxW = 32;
+static int option_maxH = 32;
 static int option_maxD = 16;
 static int option_minKW = 1;
 static int option_minKH = 1;
 static int option_minC = 1;
 static int option_maxKW = 11;
 static int option_maxKH = 11;
-static int option_maxC = 512;
+static int option_maxC = 32;
+
 
 static struct option options[] = {
 	// generic help; must ALWAYS be first index
@@ -56,7 +57,7 @@ static struct option options[] = {
 	{ "minD", required_argument, &option_minD, 0 },
 	{ "maxW", required_argument, &option_maxW, 0 },
 	{ "maxH", required_argument, &option_maxH, 0 },
-	{ "maxD", required_argument, &option_maxD, 16 },
+	{ "maxD", required_argument, &option_maxD, 0 },
 
 	// options for filters; defines ranges on filter sizes
 	{ "minKW", required_argument, &option_minKW, 0 },
@@ -88,6 +89,7 @@ void usage(int argc, char **argv) {
 	fprintf(stderr, "        --maxKH <n>\t:\tmaximum filter tensor height (default %d)\n", option_maxKH);
 	fprintf(stderr, "        --maxInt <n>\t:\tintegers will be in the range [-n .. n] (default n = %d)\n", option_maxInt);
 	fprintf(stderr, "        -h, --help\t:\tprints help\n");
+	fprintf(stderr, "        -o <file>\t:\tsave matrices to csv file\n");
 	fprintf(stderr, "        -c   \t\t:\tprints tensor configurations and maxInt before run\n");
 	exit(0);
 }
@@ -98,15 +100,16 @@ extern TensorArray_t<int8_t> *genFilters(const Tensor_t<int8_t> *);
 extern Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *, TensorArray_t<int8_t> *); 
 extern Tensor_t<float> *referenceConv2D(Tensor_t<float> *, TensorArray_t<float> *);
 extern float compareTensors(Tensor_t<int8_t> *, Tensor_t<float> *);
-extern void conv2dTrial();
+extern void conv2dTrial(const char *);
 
 // main program
 int main (int argc, char **argv) {
 	int c;
 	int option_index;
 	int opt_c = 0;
+	char *opt_o = NULL;
 
-	while ((c = getopt_long(argc, argv, "hc", options, &option_index)) != -1) {
+	while ((c = getopt_long(argc, argv, "hco:", options, &option_index)) != -1) {
 		switch (c) {
 			case 0:
 				if (!option_index) usage(argc, argv);
@@ -114,6 +117,9 @@ int main (int argc, char **argv) {
 				break;
 			case 'c':
 				opt_c = 1;
+				break;
+			case 'o':
+				opt_o = optarg;
 				break;
 			case 'h':
 				usage(argc, argv);
@@ -132,12 +138,12 @@ int main (int argc, char **argv) {
 		option_hw_P = 3;
 
 	// set up HW config
-	hwMultConfig.N = option_hw_N;
-	hwMultConfig.P = option_hw_P;
-	hwMultConfig.Q = hwMultConfig.P - 1;
+	hwMM.N = option_hw_N;
+	hwMM.P = option_hw_P;
 
 	// if option print requested
 	if (opt_c) {
+		printf("HW MM: %d vectors by %d x %d MM\n", hwMM.N, hwMM.P, hwMM.P);
 		printf("Ranges: [%d..%d]x[%d..%d]x[%d..%d] by [%d..%d] of [%d..%d]x[%d..%d]x[%d..%d], maxInt = %d\n", 
 			option_minW, option_maxW, option_minH, option_maxH, option_minD, option_maxD, option_minC, option_maxC, 
 			option_minKW, option_maxKW, option_minKH, option_maxKH, option_minD, option_maxD, option_maxInt);
@@ -145,12 +151,12 @@ int main (int argc, char **argv) {
 	}
 
 	// do a trial and quit
-	conv2dTrial();
+	conv2dTrial(opt_o);
 	return 0;
 }
 
 // Code to run one trial
-void conv2dTrial() {
+void conv2dTrial(const char* ofile) {
    	Timer timer;
    	Tensor_t<int8_t> *simulatedActivationTensor, *simulatedResultTensor;
    	TensorArray_t<int8_t> *simulatedFilterSet; 
@@ -173,6 +179,23 @@ void conv2dTrial() {
 
 		// compare
 	 	rmsError = compareTensors(simulatedResultTensor, referenceResultTensor);
+
+	 	// if diagnostic math dump requested
+	 	if (ofile) {
+	 		std::filebuf fb;
+	 		fb.open(ofile, std::ios::out);
+	 		std::ostream os(&fb);
+	 		if (ofile) {
+	 			simulatedActivationTensor->csvDump(os, "simulatedActivationTensor");
+				referenceActivationTensor->csvDump(os, "referenceActivationTensor");
+				simulatedFilterSet->csvDump(os, "simulatedFilterSet");
+				referenceFilterSet->csvDump(os, "referenceFilterSet");
+				simulatedResultTensor->csvDump(os, "simulatedResultTensor");
+				referenceResultTensor->csvDump(os, "referenceResultTensor");
+				fb.close();
+	 		} else
+	 			perror(ofile);
+	 	}
 
 	 	// cleanup
 		delete simulatedActivationTensor;
@@ -262,80 +285,99 @@ TensorArray_t<int8_t> *genFilters(const Tensor_t<int8_t>* act) {
 // Each dot product represents one element of the output tensor.
 //
 // In using the HW MM unit, we have to acount for the fact that the core dimension P may be smaller than the
-// serialized vector lengths. In this case, we "slice" the vectors in "Q = P - 1" pieces, effectively tiling the 
-// dot products. To form an accumulator between pieces, we use the Pth row of the multiplier as the result vector
-// from a prior multiply and set the last input vector element to 1 (multiply accumulator by 1 in the dot product):
+// serialized vector lengths. In this case, we "slice" the vectors in "P" pieces, effectively tiling the 
+// dot products. The HW multiplier is then doing this for each of the N vectors ("Q = P - 1" below):
 //
-// 					| <--------  P -------->|
-//  | res 1 |		| f11  m12  ...  f1Q A1 | | v1 |	^
-//  | res 2 |		| f21  m22  ...  f2Q A2 | | v2 |	|
-// 	   ...		=	| ...  ...  ...  ... .. | | .. |   	P
-//  | res Q |   	| fQ1  mQ2  ...  fQQ AQ | | vQ |	|
-//  |   1   |		|  0    0   ...   0   1 | | 1  |	v
+// 					| <-------  P ------>|
+//  | res 1 |		| f11  m12  ...  f1P | | v1 |	^
+//  | res 2 |		| f21  m22  ...  f2P | | v2 |	|
+// 	   ...		=	| ...  ...  ...  ... | | .. |   	P
+//  | res Q |   	| fQ1  mQ2  ...  fQP | | vQ |	|
+//  | res P |   	| fP1  mP2  ...  fPP | | vP |	V
 //
 // The "fij" represent filters @ i/j values; "vi" represents an input vector slice from 1..Q; "res" is the output vector slice.
-// In the end, we discard the last row of the result vector (always 1). This form of multiplication can suffer from numeric 
-// overflows on the intermediate sums.
+// This form of multiplication can suffer from numeric overflows on the intermediate sums and in the latter accumulation.
 
 Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *act, TensorArray_t<int8_t> *filtSet) { 
 	printf("Inside simulatedConv2D()\n");
 
+	// model the HW matrices and vector arrays
+	VectorArray_t<int8_t> hwMMvectors(hwMM.N, hwMM.P); 
+	VectorArray_t<int8_t> hwMMmatrix(hwMM.P, hwMM.P);
+	Matrix_t<int8_t> hwMMres(hwMM.N, hwMM.P);
+
 	// serialize versions of the filters
-	VectorArray_t<int8_t>* serializedFiltSet = new VectorArray_t<int8_t>(filtSet->count(), filtSet->length());
+	VectorArray_t<int8_t> serializedFiltSet(filtSet->count(), filtSet->length());
 	for (int c = 0; c < filtSet->count(); c++)
-		serializeTensor2Vector((*serializedFiltSet)[c], (*filtSet)[c]);
+		serializeTensor2Vector(serializedFiltSet[c], (*filtSet)[c]);
 
 	// compute output tensor dimensions
-	int OW = act->width() - filtSet->width() + 2;
-	int OH = act->height() - filtSet->height() + 2;
+	int OW = act->width() - filtSet->width() + 1;
+	int OH = act->height() - filtSet->height() + 1;
 	int OS = OW * OH;									// output surface count
 	int OD = filtSet->count();
 	Tensor_t<int8_t>* res = new Tensor_t<int8_t>(OW, OH, OD);
 
-	// main outer loop (over output tensor)
-	int i = 0; int j = 0;
-	for (int s = 0; s < OS; s += hwMultConfig.N) {
-		// extract subtensors from the activation tensor and serialize them into up to N vectors; unused vectors remain 0
-		VectorArray_t<int8_t>* actVecArray = new VectorArray_t<int8_t>(hwMultConfig.N, filtSet->length());
-		for (int ss = 0; ss < hwMultConfig.N; ss++) {
-			int ii = s % OW; int jj = s / OW; if (jj >= OH) break;
-			serializeTensor2Vector((*actVecArray)[ss], act->extractSubtensor(ii, jj, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
-		}
+	// get input dimensions
+	int IL = filtSet->length();
 
-		// data structures representing the vector matrices going into the HW MM
-		VectorArray_t<int8_t>* hwActSliceArray = new VectorArray_t<int8_t>(hwMultConfig.N, hwMultConfig.P); 
-		Matrix_t<int8_t>* hwFiltMatrix = new Matrix_t<int8_t>(hwMultConfig.P, hwMultConfig.P);
+	// Loop structure:
+	// For each C (channel); grab up to next P serialized filters for channel
+	//		For each S (tensor) in the surface (2D) of the activation tensor; grab up to next N serialized activation subtensors
+	//			For each P-sized slice of both the P serialized filters and N serialized activation subtensors, DOT them to accumulate NxP output elements
+	for (int c = 0; c < OD; c += hwMM.P) {
+		VectorArray_t<int8_t> actVecArray(hwMM.N, filtSet->length());
 
-		// set up "1" elements
+		// grab up to next Q serialized filters for channel
+		int chanCount = OD - c; if (chanCount > hwMM.P) chanCount = hwMM.P;
 
-		for (int d = 0; d < filtSet->length(); d += hwMultConfig.Q) {
-			// set up the N vector slices
-			int len = filtSet->length() - d; if (len > hwMultConfig.Q) len = hwMultConfig.Q;
-			for (int nn = 0; nn < hwMultConfig.N; nn++) {
-				(*hwActSliceArray)[nn].setVec2constant(0);
-				(*hwActSliceArray)[nn].extractVecSlice((*actVecArray)[nn], d, len);
-				(*hwActSliceArray)[nn](hwMultConfig.Q) = 1;
+		// For each S (tensor) in the surface (2D) of the output tensor
+		for (int s = 0; s < OS; s += hwMM.N) {
+			// grab up to next N serialized activation subtensors. 
+			// extract subtensors from the activation tensor and serialize them into up to N vectors; unused vectors remain 0
+			int osLen = OS - s; if (osLen > hwMM.N) osLen = hwMM.N;
+			for (int ss = 0; ss < osLen; ss++) {
+				int ii = s % OW; int jj = s / OW; 
+				serializeTensor2Vector(actVecArray[ss], act->extractSubtensor(ii, jj, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
 			}
 
-			int c = 0;
-			int width = filtSet->count() - c; if (width > hwMultConfig.Q) width = hwMultConfig.Q;
-			hwFiltMatrix->setMatrix2constant(0);
-			(*hwFiltMatrix)(hwMultConfig.Q, hwMultConfig.Q) = 1;
-			for (int cc = 0; cc < width; cc++) {
-				Vector_t<int8_t> temp(hwMultConfig.P);
-				hwFiltMatrix->insertRowFromVec(temp.extractVecSlice((*serializedFiltSet)[cc], c, len), cc);
+			// init HW MM result matrix (the accumulators)
+			for (int n = 0; n < hwMM.N; n++)
+				hwMMres.setMatrix2constant(0);
+
+			// For each P-sized slice of both the P serialized filters and N serialized activation subtensors
+			for (int ijk = 0; ijk < IL; ijk += hwMM.P) {
+				// compute slice length
+				int sliceLen = IL - ijk; if (sliceLen > hwMM.P) sliceLen = hwMM.P;
+
+				// extract up to N activation surface slices
+				for (int ss = 0; ss < osLen; ss++) {
+					hwMMvectors[ss].setVec2constant(0);
+					hwMMvectors[ss].extractVecSlice(actVecArray[ss], ijk, sliceLen);
+				}
+
+				// extract up to P filter vector slices
+				for (int cc = 0; cc < chanCount; cc++) {
+					hwMMmatrix[cc].setVec2constant(0);
+					hwMMmatrix[cc].extractVecSlice(serializedFiltSet[cc], ijk, sliceLen);
+				}
+
+				// For each P-sized slice of both the P serialized filters and N serialized activation subtensors, DOT them to accumulate NxP output elements
+				// This simulates the HW multiplier
+				for (int n = 0; n < hwMM.N; n++)
+					for (int p = 0; p < hwMM.P; p++)
+						hwMMres(n, p) += hwMMvectors[n] * hwMMmatrix[p]; 
 			}
 
-			delete hwActSliceArray;
-			delete hwFiltMatrix;
+			// store the completed accumulators in the result tensor
+			for (int ss = 0; ss < osLen; ss++) {
+				for (int cc = 0; cc < chanCount; cc++) {
+					int ii = (s+ss) % OW; int jj = (s+ss) / OW; 
+					(*res)(ii, jj, c+cc) = hwMMres(ss, cc);
+				}
+			}
 		}
-
-		for (int kk = 0; kk < hwMultConfig.Q; kk++) {
-
-		}
-
 	}
-	delete serializedFiltSet;
 	return res; 
 }
 
@@ -347,8 +389,8 @@ Tensor_t<float> *referenceConv2D(Tensor_t<float> *act, TensorArray_t<float> *fil
 	printf("Inside referenceConv2D()\n");
 
 	// compute output tensor dimensions
-	int OW = act->width() - filtSet->width() - 2;
-	int OH = act->height() - filtSet->height() - 2;
+	int OW = act->width() - filtSet->width() + 1;
+	int OH = act->height() - filtSet->height() + 1;
 	int OS = OW * OH;									// output surface count
 	int OD = filtSet->count();
 
@@ -356,19 +398,20 @@ Tensor_t<float> *referenceConv2D(Tensor_t<float> *act, TensorArray_t<float> *fil
 	for (int c = 0; c < OD; c++) 
 		for (int i = 0; i < OW; i++)
 			for (int j = 0; j < OH; j++)
-				(*res)(i, j, c) = (*filtSet)[c].dot(act->extractSubtensor(i+1, j+1, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
+				(*res)(i, j, c) = (*filtSet)[c].dot(act->extractSubtensor(i, j, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
 	return res; 
 }
 
 // compute the RMS error between the fixed point simulated result and the float reference result
 float compareTensors(Tensor_t<int8_t> *simulatedResultTensor, Tensor_t<float> *referenceResultTensor) { 
-	printf("Inside compareTensors()\n");
-
 	float error = 0.0;
+
+	printf("Inside compareTensors()\n");
 
 	int W = simulatedResultTensor->width();
 	int H = simulatedResultTensor->height();
 	int D = simulatedResultTensor->depth();
+	assert(W == referenceResultTensor->width() && H == referenceResultTensor->height() && D == referenceResultTensor->depth());
 	for (int i = 0; i < W; i++)
 		for (int j = 0; j < H; j++)
 			for (int k = 0; k < D; k++)

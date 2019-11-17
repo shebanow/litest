@@ -90,9 +90,18 @@ public:
 	// extract vector slice
 	template <typename U>
 	Vector_t<T>& extractVecSlice(const Vector_t<U>& src, const int offset, const int len) {
-		assert(offset >= 0 && (offset + len) <= src.W && len >= 0);
+		assert(offset >= 0 && (offset + len) <= src.W && len > 0);
 		for (int i = 0; i < len; i++)
 			data[i] = src.data[i + offset];
+		return *this;
+	}
+
+	// insert from vector
+	template <typename U>
+	Vector_t<T>& insertFromVec(const Vector_t<U>& src, const int offset, const int len) {
+		assert(offset >= 0 && (offset + len) <= W && len > 0 && len <= src.W);
+		for (int i = 0; i < len; i++)
+			data[i + offset] = src.data[i];
 		return *this;
 	}
 

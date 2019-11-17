@@ -6,8 +6,11 @@
  */
 #ifndef _TENSORH_
 #define _TENSORH_
+#include <iostream>
+#include <fstream>
 #include <assert.h>
 #include <string>
+#include <type_traits>
 #include "vector.h"
 #include "matrix.h"
 
@@ -142,6 +145,34 @@ public:
 	    return string(buffer);
     }
 
+    // CSV dump
+    void csvDump(std::ostream& os, const char* name = NULL) {
+    	// print optional array name
+    	if (name != NULL)
+    		os << name << std::endl;
+
+    	// print header
+    	os << std::dec;
+     	os << "WH";
+	   	for (int k = 0; k < D; k++)
+    		os << "," << k;
+    	os << std::endl;
+
+    	// print tensor
+    	for (int i = 0; i < W; i++) {
+    		for (int j = 0; j < H; j++) {
+    			os << i << "x" << j;
+		    	for (int k = 0; k < D; k++) {
+		    		if (std::is_floating_point<T>::value)
+		    			os << "," << (*this)(i, j, k);
+		    		else
+		    			os << "," << (int) (*this)(i, j, k);
+		    	}
+		    	os << std::endl;
+	   		}
+    	}
+    }
+
     // define pointer type
     typedef Tensor_t *TensorPtr_t;
 
@@ -204,6 +235,34 @@ public:
 	inline const int height() const { return H; }
 	inline const int depth() const { return D; }
 	inline const int length() const { return len; }
+
+	// CSV dump
+    void csvDump(std::ostream& os, const char* name = NULL) {
+    	// print optional array name
+    	if (name != NULL)
+    		os << name << std::endl;
+
+    	// print header
+     	os << "N,WH";
+	   	for (int k = 0; k < D; k++)
+    		os << "," << k;
+    	os << std::endl;
+
+    	// print tensor
+    	for (int n = 0; n < N; n++) {
+	    	for (int i = 0; i < W; i++) {
+	    		for (int j = 0; j < H; j++) {
+	    			os << n << "," << i << "x" << j;
+			    	for (int k = 0; k < D; k++)
+			    		if (std::is_floating_point<T>::value)
+			    			os << "," << (*this)[n](i, j, k);
+			    		else
+			    			os << "," << (int) (*this)[n](i, j, k);
+			    	os << std::endl;
+		   		}
+	    	}
+	    }
+    }
 
 	// generate a string with geometry info
     string operator() () const {
