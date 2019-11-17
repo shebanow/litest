@@ -13,7 +13,7 @@ TARGET = litest
 SRCS = $(HFILES) $(CFILES)
 
 litest: $(OFILES)
-	g++ -o $(TARGET) $(CFLAGS) $(OFILES)
+	c++ -std=c++11 -o $(TARGET) $(CFLAGS) $(OFILES)
 
 clean:
 	rm $(OFILES) $(TARGET)
@@ -23,4 +23,4 @@ docs:
 	@open doxygen/html/index.html
 
 %.o : %.cpp
-	g++ -o $@ -c $(CFLAGS) $<
+	c++ -std=c++11 -o $@ -c $(CFLAGS) $<

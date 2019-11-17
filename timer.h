@@ -30,6 +30,13 @@ public:
             sprintf(buffer, "%1.*f %s", prec, (float) timerValue, "sec");
         return string(buffer);
     }
+
+    static unsigned getSeed() {
+        struct timeval tv;
+        if (int err = gettimeofday(&tv, NULL))
+            fprintf(stderr, "gettimeofday returned error %d\n", err);
+        return (unsigned) tv.tv_usec;
+    }
     
 private:
     double timerValue;

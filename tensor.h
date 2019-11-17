@@ -28,10 +28,6 @@ public:
 					*dst++ = 0;
 	}
 
-	// dimension methods
-	inline const int width() { return W; }
-	inline const int length() { return W; }
-
 	// generic copy constructor
 	template <typename U> friend class Tensor_t;
 	template <typename U>
@@ -56,7 +52,7 @@ public:
 	inline const int length() const { return len; }
 	
 	//!< reference to a tensor member
-	inline T& operator()(int i, int j, int k) { 
+	inline T& operator()(int i, int j, int k) const { 
 		assert(i >= 0 && i < W && j >= 0 && j < H && k >= 0 && k < D); 
 		return data[((k * H) + j) * W + i]; 
 	}
@@ -103,37 +99,34 @@ public:
 	}
 
 	//!< Extract a subtensor slice from tensor of spatial face h by w, full depth
-	Tensor_t<T> extractSpatialSubtensor(const int ii, const int jj, const int w, const int h) const {
-		Tensor_t<T> result(w, h, D);
-		T *dst = result.data;
-		T *src = &data[jj * W + ii];
-		int stride = W - w;
+	Tensor_t<T> extractSubtensor(const int ii, const int jj, const int kk, const int w, const int h, const int d) const {
+		Tensor_t<T> result(w, h, d);
 
 		// parameter check
-		assert(ii >= 0 && ii < W && jj >= 0 && jj < H && w >= 1 && (ii + w) <= W && (jj + h) <= H);
+		assert(ii >= 0 && jj >= 0 && kk >= 0 &&								// offsets >= 0
+			ii < W && jj < H && kk < D && 									// offsets less than dimensions
+			w >= 1 && h >= 1 && d >= 1 && 									// output dimensions positive and non-zero
+			(ii + w) <= W && (jj + h) <= H && (kk + d) <= D);				// output not sliced beyond limits
 
 		// We copy from rows innermost, to columns, to depth. 
 		// Since we are extracting a partial row, we align to start of next offset when copy is complete (when we started, we were at ii offset; 
 		// we increment during the copy to now be at "ii + w" offset - row end is at "W - ii - w" distance; we want to take that distance and
 		// then add ii to offset at the next row => "W - ii - w + ii" = "W - w" adder. Since we are copying complete depth, we don't need to do this
 		// for the loop after stride H. 
-		for (int k = 0; k < D; k++) {
-			for (int j = jj; j < (jj + h); j++) {
-				for (int i = ii; i < (ii + w); i++)
-					*dst++ = *src++;
-				src += stride;
-			}
-		}
+		for (int i = 0; i < w; i++)
+			for (int j = 0; j < h; j++) 
+				for (int k = 0; k < d; k++) 
+					result(i, j, k) = (*this)(ii+i, jj+j, kk+k);
 		return result;
 	}
 
-	//!< Convolve two tensors (dot product)
-	T convolve(const Tensor_t<T>& t) const {
+	//!< Dot two tensors (dot product)
+	T dot(const Tensor_t<T>& t) const {
 		T sum = 0;
 		T *src1 = t.data;
 		T *src2 = data;
 
-		assert(W = t.W && H == t.H && D == t.D);
+		assert(W == t.W && H == t.H && D == t.D);
 		for (int k = 0; k < D; k++)
 			for (int j = 0; j < H; j++)
 				for (int i = 0; i < W; i++)
@@ -152,11 +145,28 @@ public:
     // define pointer type
     typedef Tensor_t *TensorPtr_t;
 
+	// friend function to serialize a Tensor into a vector
+    template <typename U>
+	friend void serializeTensor2Vector(Vector_t<U> &, const Tensor_t<U> &);
+
 private:
 	T *data;
 	const int W, H, D;
 	const int len;
+
+	template <typename TT> friend class Vector_t;
+	template <typename TT> friend class Matrix_t;
 }; 
+
+/********************* Tensor_t Friend Functions ********************/
+// friend function to serialize a Tensor into a vector
+// The data in a tensor is already serialized by row-col-depth, so all we have to do is copy it. 
+// (a bit of overhead since we zero-initialize a vector in the constructor)
+template <typename T> 
+inline void serializeTensor2Vector(Vector_t<T>& dst, const Tensor_t<T>& src) {
+	assert(dst.length() == src.length());
+	memcpy(dst.data, src.data, src.length());
+}
 
 /********************* TensorArray_t class ********************/
 template <typename T>

@@ -11,6 +11,11 @@
 
 using namespace std;
 
+// class forward declarations.
+template <typename T> class Matrix_t;
+template <typename T> class Tensor_t;
+
+/************************* Vector_t class **************************/
 template <typename T>
 class Vector_t {
 public:
@@ -75,12 +80,85 @@ public:
 	    return string(buffer);
 	}
 
+	// set vector to constant
+	Vector_t<T>& setVec2constant(const T value) {
+		for (int i = 0; i < W; i++)
+			data[i] = value;
+		return *this;
+	}
+
+	// extract vector slice
+	template <typename U>
+	Vector_t<T>& extractVecSlice(const Vector_t<U>& src, const int offset, const int len) {
+		assert(offset >= 0 && (offset + len) <= src.W && len >= 0);
+		for (int i = 0; i < len; i++)
+			data[i] = src.data[i + offset];
+		return *this;
+	}
+
+    // define pointer type
+    typedef Vector_t *VectorPtr_t;
+
+    // allow serialization friend function access
+    template <typename U>
+	friend void serializeTensor2Vector(Vector_t<U> &, const Tensor_t<U> &);
+
 private:
 	T *data;
 	const int W;
 
 	template <typename TT> friend class Matrix_t;
 	template <typename TT> friend class Tensor_t;
+};
+
+/************************* VectorArray_t class **************************/
+template <typename T>
+class VectorArray_t {
+public:
+	// Constructor
+	VectorArray_t(int _N = 1, int _W = 1) : N(_N), W(_W), len(_W) {
+		array = new typename Vector_t<T>::VectorPtr_t[N];
+		for (int i = 0; i < N; i++)
+			array[i] = new Vector_t<T>(W);
+	}
+
+	// generic copy constructor
+	template <typename U> friend class VectorArray_t;
+	template <typename U>
+	VectorArray_t(const VectorArray_t<U>& v) : N(v.N), W(v.W), len(v.len) { 
+		array = new typename Vector_t<T>::VectorPtr_t[v.N];
+		for (int i = 0; i < N; i++)
+			array[i] = new Vector_t<T>(*v.array[i]);
+	}
+
+	// Destructor
+	virtual ~VectorArray_t() {
+		for (int i = 0; i < N; i++)
+			delete array[i];
+		delete[] array;
+	}
+
+	// reference to a tensor in the array
+	inline Vector_t<T>& operator[] (int i) { return *array[i]; }
+
+	// dimension methods
+	inline const int count() const { return N; }
+	inline const int width() const { return W; }
+	inline const int length() const { return len; }
+
+	// generate a string with geometry info
+    string operator() () const {
+	    char buffer[64];
+
+	    sprintf(buffer, "%d X [%d]", N, W);
+	    return string(buffer);
+    }
+
+private:
+	typename Vector_t<T>::VectorPtr_t *array;
+	const int W;
+	const int len;
+	const int N;
 };
 
 #endif // _VECTOR_H_

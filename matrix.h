@@ -96,6 +96,20 @@ public:
 	    return string(buffer);
 	}
 
+	// Set matrix to a constant
+	Matrix_t<T>& setMatrix2constant(const T value) {
+		for (int i = 0; i < len; i++)
+			data[i] = value;
+		return *this;
+	}
+
+	// insert row from vector
+	Matrix_t<T>& insertRowFromVec(const Vector_t<T>& v, const int row) {
+		for (int j = 0; j < v.W; j++)
+			(*this)(row, j) = v.data[j];
+		return *this;
+	}
+
 private:
 	T *data;
 	const int len;
