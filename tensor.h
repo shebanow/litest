@@ -9,14 +9,13 @@
 #include <iostream>
 #include <fstream>
 #include <assert.h>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include "vector.h"
 #include "matrix.h"
 
-using namespace std;
-
-/********************* Tensor_t class ********************/
+// Tensor_t class
 template <typename T>
 class Tensor_t {
 public:
@@ -54,54 +53,13 @@ public:
 	inline const int depth() const { return D; }
 	inline const int length() const { return len; }
 	
-	//!< reference to a tensor member
+	// reference to a tensor member
 	inline T& operator()(int i, int j, int k) const { 
 		assert(i >= 0 && i < W && j >= 0 && j < H && k >= 0 && k < D); 
 		return data[((k * H) + j) * W + i]; 
 	}
 
-	//!< Extract a row vector slice from tensor
-	Vector_t<T> rowVector(const int j, const int k) const {
-		Vector_t<T> result(W);
-		T *dst = result.data;
-		T *src = &data[((k * H) + j) * W];
-
-		assert(j >= 0 && j < H && k >= 0 && k < D);
-		for (int i = 0; i < W; i++)
-			*dst++ = *src++;
-	}
-
-	//!< Extract a column vector slice from tensor
-	Vector_t<T> colVector(const int i, const int k) const {
-		Vector_t<T> result(H);
-		T *dst = result.data;
-		T *src = &data[k * H * W + i];
-		int stride = W;
-
-		assert(i >= 0 && i < W && k >= 0 && k < D);
-		for (int j = 0; j < H; j++) {
-			*dst++ = *src;
-			src += stride;
-		}
-		return result;
-	}
-
-	//!< Extract a depth vector slice from tensor
-	Vector_t<T> depthVector(const int i, const int j) const {
-		Vector_t<T> result(D);
-		T *dst = result.data;
-		T *src = &data[j * W + i];
-		int stride = H * W;
-
-		assert(i >= 0 && i < W && j >= 0 && j < H);
-		for (int k = 0; k < D; k++) {
-			*dst++ = *src;
-			src += stride;
-		}
-		return result;
-	}
-
-	//!< Extract a subtensor slice from tensor of spatial face h by w, full depth
+	// Extract a subtensor slice from tensor of spatial face h by w, full depth
 	Tensor_t<T> extractSubtensor(const int ii, const int jj, const int kk, const int w, const int h, const int d) const {
 		Tensor_t<T> result(w, h, d);
 
@@ -123,7 +81,7 @@ public:
 		return result;
 	}
 
-	//!< Dot two tensors (dot product)
+	// Dot two tensors (dot product)
 	T dot(const Tensor_t<T>& t) const {
 		T sum = 0;
 		T *src1 = t.data;
@@ -138,11 +96,10 @@ public:
 	}
 
 	// generate a string with geometry info
-    string operator() () const {
-	    char buffer[64];
-
-	    sprintf(buffer, "[%d,%d,%d]", W, H, D);
-	    return string(buffer);
+    std::string operator() () const {
+	   	static std::ostringstream buffer;
+	    buffer << "[" << W << "," << H << "," << D << "]";
+	    return buffer.str();
     }
 
     // CSV dump
@@ -265,11 +222,10 @@ public:
     }
 
 	// generate a string with geometry info
-    string operator() () const {
-	    char buffer[64];
-
-	    sprintf(buffer, "%d X [%d,%d,%d]", N, W, H, D);
-	    return string(buffer);
+    std::string operator() () const {
+	   	static std::ostringstream buffer;
+	    buffer << N << " X [" << W << "," << H << "," << D << "]";
+	    return buffer.str();
     }
 
 private:

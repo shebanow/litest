@@ -7,15 +7,15 @@
 #ifndef _MATRIX_H_
 #define _MATRIX_H_
 #include <assert.h>
+#include <sstream>
 #include <string>
 #include "vector.h"
 
-using namespace std;
-
+// Matrix_t class
 template <typename T>
 class Matrix_t {
 public:
-	//!< Constructor 
+	// Constructor 
 	Matrix_t(int _W = 1, int _H = 1) : W(_W), H(_H), len(_W * _H) {
 		data = new T[len];
 		T *dst = data;
@@ -25,7 +25,7 @@ public:
 				*dst++ = 0;
 	}
 
-	//!< Copy constructor
+	// Copy constructor
 	Matrix_t(const Matrix_t<T>& m) : W(m.W), H(m.H), len(m.W * m.H) { 
 		data = new T[len];
 		T *src = m.data;
@@ -36,6 +36,7 @@ public:
 				*dst++ = *src++;
 	}
 
+	// Destructor
 	virtual ~Matrix_t() { delete data; }
 
 	// dimension methods
@@ -43,7 +44,7 @@ public:
 	inline const int height() const { return H; }
 	inline const int length() const { return len; }
 
-	//!< return a reference to a tensor member
+	// return a reference to a tensor member
 	inline T& operator()(int i, int j) {  assert(i >= 0 && i < W && j >= 0 && j < H); return data[j * W + i]; }
 
 	// Matrix multiply on vector, "result = m * v"
@@ -63,50 +64,17 @@ public:
 		return result;
 	}
 
-	// method to extract row
-	Vector_t<T> rowVector(const int j) const{
-		Vector_t<T> result(W);
-		T *dst = result.data;
-		T *src = &data[j * W];
-
-		for (int i = 0; i < W; i++)
-			*dst++ = *src++;
-		return result;
-	}
-
-	// method to extract column
-	// BUG: reverse row/col?
-	Vector_t<T> colVector(const int i) const {
-		Vector_t<T> result(H);
-		T *dst = result.data;
-		T *src = &data[i];
-
-		for (int j = 0; j < H; j++) {
-			*dst++ = *src;
-			src += W;
-		}
-		return result;
-	}
-
-	//!< Generate a string with matrix geoemtry
-	string operator() () const {
-	    static char buffer[32];
-
-	    sprintf(buffer, "[%d,%d]", W, H);
-	    return string(buffer);
+	// Generate a string with matrix geoemtry
+	std::string operator() () const {
+	   	static std::ostringstream buffer;
+	    buffer << "[" << W << "," << H << "]";
+	    return buffer.str();
 	}
 
 	// Set matrix to a constant
 	Matrix_t<T>& setMatrix2constant(const T value) {
 		for (int i = 0; i < len; i++)
 			data[i] = value;
-		return *this;
-	}
-
-	// insert row from vector
-	Matrix_t<T>& insertRowFromVec(const Vector_t<T>& v, const int row) {
-		for (int j = 0; j < v.W; j++)
-			(*this)(row, j) = v.data[j];
 		return *this;
 	}
 

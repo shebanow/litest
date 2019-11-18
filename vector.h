@@ -7,32 +7,32 @@
 #ifndef _VECTOR_H_
 #define _VECTOR_H_
 #include <assert.h>
+#include <sstream>
 #include <string>
-
-using namespace std;
 
 // class forward declarations.
 template <typename T> class Matrix_t;
 template <typename T> class Tensor_t;
 
-/************************* Vector_t class **************************/
+// Vector_t class 
 template <typename T>
 class Vector_t {
 public:
-	//!< Vector Constructor
+	// Vector Constructor
 	Vector_t(int _W) : W(_W) { 
 		data = new T[W];
 		for (int i = 0; i < W; i++)
 			data[i] = 0;
 	}
 
-	//!< Vector Copy Constructor
+	// Vector Copy Constructor
 	Vector_t(const Vector_t<T>& t) : W(t.W) { 
 		data = new T[W];
 		for (int i = 0; i < W; i++)
 			data[i] = t.data[i];
 	}
 
+	// Vector destructor
 	virtual ~Vector_t() { delete data; }
 
 	// return a reference to a tensor member
@@ -43,7 +43,7 @@ public:
 	inline const int width() const { return W; }
 	inline const int length() const { return W; }
 
-	//!< Vector Multiply vector * scalar
+	// Vector Multiply vector * scalar
 	Vector_t<T> operator* (const T scalar) const {
 		Vector_t<T> result(W); 
 
@@ -52,7 +52,7 @@ public:
 		return result;
 	}
 
-	//!< Vector Dot product
+	// Vector Dot product
 	T operator* (const Vector_t<T>& v) const {
 		T accumulator = 0;
 
@@ -62,7 +62,7 @@ public:
 		return accumulator;
 	}
 
-	//!< Vector: Add a vector to another
+	// Vector: Add a vector to another
 	Vector_t<T> operator+ (const Vector_t<T>& v) const {
 		Vector_t<T> result(W); 
 
@@ -72,12 +72,11 @@ public:
 		return result;
 	}
 
-	//!< Generate a string with vector geoemtry
-	string operator() () const {
-	    static char buffer[16];
-
-	    sprintf(buffer, "[%d]", W);
-	    return string(buffer);
+	// Generate a string with vector geoemtry
+	std::string operator() () const {
+	   	static std::ostringstream buffer;
+	    buffer << "[" << W << "]";
+	    return buffer.str();
 	}
 
 	// set vector to constant
@@ -96,19 +95,10 @@ public:
 		return *this;
 	}
 
-	// insert from vector
-	template <typename U>
-	Vector_t<T>& insertFromVec(const Vector_t<U>& src, const int offset, const int len) {
-		assert(offset >= 0 && (offset + len) <= W && len > 0 && len <= src.W);
-		for (int i = 0; i < len; i++)
-			data[i + offset] = src.data[i];
-		return *this;
-	}
-
     // define pointer type
     typedef Vector_t *VectorPtr_t;
 
-    // allow serialization friend function access
+    // allow serialization friend function access to private data
     template <typename U>
 	friend void serializeTensor2Vector(Vector_t<U> &, const Tensor_t<U> &);
 
@@ -120,7 +110,7 @@ private:
 	template <typename TT> friend class Tensor_t;
 };
 
-/************************* VectorArray_t class **************************/
+// VectorArray_t class
 template <typename T>
 class VectorArray_t {
 public:
@@ -156,11 +146,10 @@ public:
 	inline const int length() const { return len; }
 
 	// generate a string with geometry info
-    string operator() () const {
-	    char buffer[64];
-
-	    sprintf(buffer, "%d X [%d]", N, W);
-	    return string(buffer);
+    std::string operator() () const {
+	   	static std::ostringstream buffer;
+	    buffer << N << " X [" << W << "]";
+	    return buffer.str();
     }
 
 private:
