@@ -1,0 +1,31 @@
+[iMac:~/Documents/GitHub/litest] shebanow% litest --help
+usage: litest <options>
+    where options are:
+        --hwN <n>	:	HW multipler vector width (default 16)
+        --hwP <n>	:	HW multipler MM dimensions (default 16)
+        --minW <n>	:	minimum activation tensor width (default 16)
+        --maxW <n>	:	maximum activation tensor width (default 32)
+        --minH <n>	:	minimum activation tensor height (default 16)
+        --maxH <n>	:	maximum activation tensor height (default 32)
+        --minD <n>	:	minimum activation tensor depth (default 1)
+        --maxD <n>	:	maximum activation tensor depth (default 16)
+        --minC <n>	:	minimum filter tensor channel count (default 1)
+        --maxC <n>	:	maximum filter tensor channel count (default 32)
+        --minKW <n>	:	minimum filter tensor width (default 1)
+        --maxKW <n>	:	maximum filter tensor width (default 11)
+        --minKH <n>	:	minimum filter tensor height (default 1)
+        --maxKH <n>	:	maximum filter tensor height (default 11)
+        --maxInt <n>	:	integers will be in the range [-n .. n] (default n = 16)
+        -v, --verbose	:	be verbose
+        -h, --help	:	prints help
+        -o <file>	:	save matrices to csv file
+[iMac:~/Documents/GitHub/litest] shebanow% litest -v --maxInt 2
+HW MM: 16 vectors by 16 x 16 MM
+Ranges: [16..32]x[16..32]x[1..16] by [1..32] of [1..11]x[1..11]x[1..16], maxInt = 2
+Activation tensor diff = 0, max filter error = 1.4e-45
+conv2D trial: [26,21,6] by 15 X [3,4,6], 0% rms error, 14.422 msec sim time
+[iMac:~/Documents/GitHub/litest] shebanow% litest -v --maxInt 4
+HW MM: 16 vectors by 16 x 16 MM
+Ranges: [16..32]x[16..32]x[1..16] by [1..32] of [1..11]x[1..11]x[1..16], maxInt = 4
+Activation tensor diff = 0, max filter error = 1.4e-45
+conv2D trial: [27,18,6] by 25 X [3,3,6], 2.3e+03% rms error, 17.320 msec sim time
