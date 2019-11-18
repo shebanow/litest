@@ -18,9 +18,5 @@ litest: $(OFILES)
 clean:
 	rm $(OFILES) $(TARGET)
 
-docs:
-	@doxygen
-	@open doxygen/html/index.html
-
 %.o : %.cpp
 	c++ -std=c++11 -o $@ -c $(CFLAGS) $<
