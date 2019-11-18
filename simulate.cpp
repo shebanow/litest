@@ -39,6 +39,19 @@ void conv2dTrial(const char* ofile) {
 		referenceFilterSet = new TensorArray_t<float>(*simulatedFilterSet);
 		buffer << (*simulatedActivationTensor)().c_str() << " by " << (*simulatedFilterSet)().c_str();
 
+		// if verbose, compare input tensors
+		if (option_verbose) {
+			float actError, filterError;
+
+			actError = compareTensors(simulatedActivationTensor, referenceActivationTensor);
+			for (int n = 0; n < simulatedFilterSet-> count(); n++) {
+				float ferr = compareTensors(simulatedFilterSet->pointer(n), referenceFilterSet->pointer(n));
+				if (ferr > filterError) filterError = ferr;
+			}
+			std::cout.precision(2);
+			std::cout << "Activation tensor diff = " << actError << ", max filter error = " << filterError << std::endl;
+		}
+
 		// simulate and generate refernce results
 		simulatedResultTensor = simulatedConv2D(simulatedActivationTensor, simulatedFilterSet);
 		referenceResultTensor = referenceConv2D(referenceActivationTensor, referenceFilterSet);
@@ -51,10 +64,10 @@ void conv2dTrial(const char* ofile) {
 	 		std::filebuf fb;
 	 		if (fb.open(ofile, std::ios::out)) {
 	 			std::ostream os(&fb);
-	 			simulatedActivationTensor->csvDump(os, "simulatedActivationTensor");
-				referenceActivationTensor->csvDump(os, "referenceActivationTensor");
-				simulatedFilterSet->csvDump(os, "simulatedFilterSet");
-				referenceFilterSet->csvDump(os, "referenceFilterSet");
+	 		// 	simulatedActivationTensor->csvDump(os, "simulatedActivationTensor");
+				// referenceActivationTensor->csvDump(os, "referenceActivationTensor");
+				// simulatedFilterSet->csvDump(os, "simulatedFilterSet");
+				// referenceFilterSet->csvDump(os, "referenceFilterSet");
 				simulatedResultTensor->csvDump(os, "simulatedResultTensor");
 				referenceResultTensor->csvDump(os, "referenceResultTensor");
 				fb.close();
@@ -73,7 +86,7 @@ void conv2dTrial(const char* ofile) {
 
 	// print results
 	std::cout.precision(2);
-	cout << "conv2D trial: " << buffer.str() << ", " << (rmsError * 100.0) << "% rms error, " << timer().c_str() << " sim time" << std::endl; 
+	std::cout << "conv2D trial: " << buffer.str() << ", " << (rmsError * 100.0) << "% rms error, " << timer().c_str() << " sim time" << std::endl; 
 }
 
 // genActivation: generate an activation tensor using random fixed point data.
@@ -82,9 +95,6 @@ void conv2dTrial(const char* ofile) {
 // Limits are assumed in the tensor size generated per command line options.
 
 Tensor_t<int8_t> *genActivation() { 
-	if (option_verbose)
-		cout << "Inside genActivation()" << std::endl;
-	
 	// random number generators
 	std::random_device rd; 
     std::mt19937 gen(rd());
@@ -104,7 +114,6 @@ Tensor_t<int8_t> *genActivation() {
 	for (int i = 0; i < W; i++)
 		for (int j = 0; j < H; j++)
 			for (int k = 0; k < D; k++)
-//				(*act)(i,j,k) = rand.uniform(-option_maxInt, option_maxInt);
 				(*act)(i,j,k) = randData(gen);
 	return act;
 }
@@ -114,9 +123,6 @@ Tensor_t<int8_t> *genActivation() {
 // Limits are assumed in the tensor array size generated per command line options.
 
 TensorArray_t<int8_t> *genFilters(const Tensor_t<int8_t>* act) { 
-	if (option_verbose)
-		cout << "Inside genFilters()" << std::endl;
-	
 	// random number generators
 	std::random_device rd; 
     std::mt19937 gen(rd());
@@ -131,7 +137,6 @@ TensorArray_t<int8_t> *genFilters(const Tensor_t<int8_t>* act) {
 	int C, KW, KH, D;
 
 	// generate a random filter size, but constrain to be no wider/taller than activation
-	// BUG: account for padding
 	KW = randKW(gen); if (act->width() < KW) KW = act->width();
 	KH = randKH(gen); if (act->height() < KH) KH = act->height();
 
@@ -170,12 +175,10 @@ TensorArray_t<int8_t> *genFilters(const Tensor_t<int8_t>* act) {
 //  | res P |   	| fP1  mP2  ...  fPP | | vP |	V
 //
 // The "fij" represent filters @ i/j values; "vi" represents an input vector slice from 1..Q; "res" is the output vector slice.
-// This form of multiplication can suffer from numeric overflows on the intermediate sums and in the latter accumulation.
+// This form of multiplication can suffer from numeric overflows on the intermediate sums and in the latter accumulation (and the 
+// errors can be pretty extreme).
 
 Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *act, TensorArray_t<int8_t> *filtSet) { 
-	if (option_verbose)
-		cout << "Inside simulatedConv2D()" << std::endl;
-
 	// model the HW matrices and vector arrays
 	VectorArray_t<int8_t> hwMMvectors(hwMM.N, hwMM.P); 
 	VectorArray_t<int8_t> hwMMmatrix(hwMM.P, hwMM.P);
@@ -212,7 +215,7 @@ Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *act, TensorArray_t<int8_t> *
 			// extract subtensors from the activation tensor and serialize them into up to N vectors; unused vectors remain 0
 			int osLen = OS - s; if (osLen > hwMM.N) osLen = hwMM.N;
 			for (int ss = 0; ss < osLen; ss++) {
-				int ii = s % OW; int jj = s / OW; 
+				int ii = (s+ss) % OW; int jj = (s+ss) / OW; 
 				serializeTensor2Vector(actVecArray[ss], act->extractSubtensor(ii, jj, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
 			}
 
@@ -234,7 +237,7 @@ Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *act, TensorArray_t<int8_t> *
 				// extract up to P filter vector slices
 				for (int cc = 0; cc < chanCount; cc++) {
 					hwMMmatrix[cc].setVec2constant(0);
-					hwMMmatrix[cc].extractVecSlice(serializedFiltSet[cc], ijk, sliceLen);
+					hwMMmatrix[cc].extractVecSlice(serializedFiltSet[c+cc], ijk, sliceLen);
 				}
 
 				// For each P-sized slice of both the P serialized filters and N serialized activation subtensors, DOT them to accumulate NxP output elements
@@ -261,39 +264,32 @@ Tensor_t<int8_t> *simulatedConv2D(Tensor_t<int8_t> *act, TensorArray_t<int8_t> *
 // a direct dot product of the activation subtensor against each filter tensor.
 
 Tensor_t<float> *referenceConv2D(Tensor_t<float> *act, TensorArray_t<float> *filtSet) { 
-	if (option_verbose)
-		cout << "Inside referenceConv2D()" << std::endl; 
-
 	// compute output tensor dimensions
 	int OW = act->width() - filtSet->width() + 1;
 	int OH = act->height() - filtSet->height() + 1;
 	int OS = OW * OH;									// output surface count
-	int OD = filtSet->count();
+	int OC = filtSet->count();
 
-
-	Tensor_t<float>* res = new Tensor_t<float>(OW, OH, OD);
-	for (int c = 0; c < OD; c++) 
+	Tensor_t<float>* res = new Tensor_t<float>(OW, OH, OC);
+	for (int c = 0; c < OC; c++) 
 		for (int i = 0; i < OW; i++)
 			for (int j = 0; j < OH; j++)
 				(*res)(i, j, c) = (*filtSet)[c].dot(act->extractSubtensor(i, j, 0, filtSet->width(), filtSet->height(), filtSet->depth()));
 	return res; 
 }
 
-// compute the RMS error between the fixed point simulated result and the float reference result
-float compareTensors(Tensor_t<int8_t> *simulatedResultTensor, Tensor_t<float> *referenceResultTensor) { 
+// compute the RMS error between a fixed point simulated tensor and a float reference tensor
+float compareTensors(Tensor_t<int8_t> *sTensor, Tensor_t<float> *rTensor) { 
 	float error = 0.0;
 
-	if (option_verbose)
-		cout << "Inside compareTensors()" << std::endl;
-
-	int W = simulatedResultTensor->width();
-	int H = simulatedResultTensor->height();
-	int D = simulatedResultTensor->depth();
-	assert(W == referenceResultTensor->width() && H == referenceResultTensor->height() && D == referenceResultTensor->depth());
+	int W = sTensor->width();
+	int H = sTensor->height();
+	int D = sTensor->depth();
+	assert(W == rTensor->width() && H == rTensor->height() && D == rTensor->depth());
 	for (int i = 0; i < W; i++)
 		for (int j = 0; j < H; j++)
 			for (int k = 0; k < D; k++)
-				error += pow((float) (*simulatedResultTensor)(i,j,k) - (*referenceResultTensor)(i,j,k), 2.0);
+				error += pow((float) (*sTensor)(i,j,k) - (*rTensor)(i,j,k), 2.0);
 	return pow(error / ((float) (W * H * D)), 0.5); 
 }
 

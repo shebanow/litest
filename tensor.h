@@ -88,10 +88,8 @@ public:
 		T *src2 = data;
 
 		assert(W == t.W && H == t.H && D == t.D);
-		for (int k = 0; k < D; k++)
-			for (int j = 0; j < H; j++)
-				for (int i = 0; i < W; i++)
-					sum += *src1++ * *src2++;
+		for (int l = 0; l < len; l++)
+			sum += *src1++ * *src2++;
 		return sum;
 	}
 
@@ -146,7 +144,7 @@ private:
 	template <typename TT> friend class Matrix_t;
 }; 
 
-/********************* Tensor_t Friend Functions ********************/
+// Tensor_t Friend Functions
 // friend function to serialize a Tensor into a vector
 // The data in a tensor is already serialized by row-col-depth, so all we have to do is copy it. 
 // (a bit of overhead since we zero-initialize a vector in the constructor)
@@ -156,7 +154,7 @@ inline void serializeTensor2Vector(Vector_t<T>& dst, const Tensor_t<T>& src) {
 	memcpy(dst.data, src.data, src.length());
 }
 
-/********************* TensorArray_t class ********************/
+// TensorArray_t class
 template <typename T>
 class TensorArray_t {
 public:
@@ -185,6 +183,7 @@ public:
 
 	// reference to a tensor in the array
 	inline Tensor_t<T>& operator[] (int i) { return *array[i]; }
+	inline Tensor_t<T>* pointer(int i) { return array[i]; }
 
 	// dimension methods
 	inline const int count() const { return N; }

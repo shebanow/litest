@@ -87,7 +87,6 @@ void usage(int argc, char **argv) {
 	cerr << "        -v, --verbose\t:\tbe verbose" << std::endl;
 	cerr << "        -h, --help\t:\tprints help" << std::endl;
 	cerr << "        -o <file>\t:\tsave matrices to csv file" << std::endl;
-	cerr << "        -c   \t\t:\tprints tensor configurations and maxInt before run" << std::endl;
 	exit(0);
 }
 
@@ -98,7 +97,6 @@ extern void conv2dTrial(const char *);
 int main (int argc, char **argv) {
 	int c;
 	int option_index;
-	int opt_c = 0;
 	char *opt_o = NULL;
 
 	while ((c = getopt_long(argc, argv, "vhco:", options, &option_index)) != -1) {
@@ -107,9 +105,6 @@ int main (int argc, char **argv) {
 				if (!option_index) usage(argc, argv);
 				if (option_index == 1) option_verbose = 1;
 				*options[option_index].flag = atoi(optarg);
-				break;
-			case 'c':
-				opt_c = 1;
 				break;
 			case 'v':
 				option_verbose = 1;
@@ -138,7 +133,7 @@ int main (int argc, char **argv) {
 	hwMM.P = option_hw_P;
 
 	// if option print requested
-	if (opt_c) {
+	if (option_verbose) {
 		cout << "HW MM: " << hwMM.N << " vectors by " << hwMM.P << " x " << hwMM.P << " MM" << std::endl;
 		cout << "Ranges: [" << option_minW << ".." << option_maxW << "]x[" << option_minH << ".." << option_maxH << "]x[" << option_minD << ".." << option_maxD << "] by [" << 
 				option_minC << ".." << option_maxC << "] of [" << option_minKW << ".." << option_maxKW << "]x[" << option_minKH << ".." << option_maxKH << "]x[" << option_minD << ".." << option_maxD << 

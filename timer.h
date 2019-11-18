@@ -11,8 +11,6 @@
 #include <sys/time.h>
 #include <string>
 
-using namespace std;
-
 class Timer {
 public:
     Timer() { timerValue = 0.0; }
@@ -20,7 +18,7 @@ public:
     void start() { timerValue = getTime(); }                    ///< Starts a "stopwatch"
     void stop() { timerValue = getTime() - timerValue; }        ///< Stops a "stopwatch"
     inline double operator* () const { return timerValue; }     ///< Return stopwatch value as a double
-    string operator() (const int prec = 3) const {              ///< Return timer value as a string; single int argument is the precision to use for prining floating point.
+    std::string operator() (const int prec = 3) const {         ///< Return timer value as a string; single int argument is the precision to use for prining floating point.
         char buffer[64];
         if (timerValue < 1.0e-3)
             sprintf(buffer, "%1.*f %s", prec, (float) timerValue * 1.0e6f, "usec");
@@ -28,7 +26,7 @@ public:
             sprintf(buffer, "%1.*f %s", prec, (float) timerValue * 1.0e3f, "msec");
         else 
             sprintf(buffer, "%1.*f %s", prec, (float) timerValue, "sec");
-        return string(buffer);
+        return std::string(buffer);
     }
 
     static unsigned getSeed() {
